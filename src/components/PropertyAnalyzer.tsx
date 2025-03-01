@@ -16,6 +16,7 @@ const PropertyAnalyzer = () => {
   const [annualInsurance, setAnnualInsurance] = useState(2400);
   const [monthlyHOA, setMonthlyHOA] = useState(300);
   const [onboardingCosts, setOnboardingCosts] = useState(25000);
+  const [propertyManagementRate, setPropertyManagementRate] = useState(25);
 
   // Calculated values
   const [scenarios, setScenarios] = useState([]);
@@ -61,9 +62,12 @@ const PropertyAnalyzer = () => {
             // Calculate income based on cap rate
             const annualGrossIncome = purchasePrice * (capRate / 100);
             const monthlyIncome = annualGrossIncome / 12;
-            
+                        
+            // Calculate property management costs
+            const monthlyManagementCost = monthlyIncome * (propertyManagementRate / 100);
+
             // Calculate cashflow
-            const monthlyCashflow = monthlyIncome - totalMonthlyExpenses;
+            const monthlyCashflow = monthlyIncome - totalMonthlyExpenses - monthlyManagementCost;
             const annualCashflow = monthlyCashflow * 12;
             
             // Calculate ROI
@@ -76,9 +80,11 @@ const PropertyAnalyzer = () => {
               const yearlyData = {
                 year,
                 monthlyExpenses: totalMonthlyExpenses,
+                monthlyManagementCost,
                 monthlyIncome,
                 monthlyCashflow,
                 annualExpenses: totalMonthlyExpenses * 12,
+                annualManagementCost: monthlyManagementCost * 12,
                 annualIncome: monthlyIncome * 12,
                 annualCashflow,
                 cumulativeCashflow: annualCashflow * year
@@ -98,6 +104,7 @@ const PropertyAnalyzer = () => {
               monthlyPropertyTax,
               monthlyInsurance,
               monthlyHOA,
+              monthlyManagementCost,
               totalMonthlyExpenses,
               monthlyIncome,
               monthlyCashflow,
@@ -128,7 +135,7 @@ const PropertyAnalyzer = () => {
     // Get specific scenarios
     const specificScenariosFiltered = allScenarios.filter(scenario => 
       scenario.purchasePrice === 900000 && 
-      scenario.interestRate === 6.0 && 
+      scenario.interestRate === 7.0 && 
       scenario.capRate === 10
     );
     
@@ -172,6 +179,7 @@ const PropertyAnalyzer = () => {
       'Monthly Property Tax',
       'Monthly Insurance',
       'Monthly HOA',
+      'Monthly Management',
       'Total Monthly Expenses',
       'Monthly Income',
       'Monthly Cashflow',
@@ -195,6 +203,7 @@ const PropertyAnalyzer = () => {
         scenario.monthlyPropertyTax,
         scenario.monthlyInsurance,
         scenario.monthlyHOA,
+        scenario.monthlyManagementCost,
         scenario.totalMonthlyExpenses,
         scenario.monthlyIncome,
         scenario.monthlyCashflow,
@@ -267,6 +276,17 @@ const PropertyAnalyzer = () => {
                 onChange={(e) => setOnboardingCosts(Number(e.target.value))}
               />
             </div>
+            <div>
+              <Label htmlFor="propertyManagement">Property Management (%)</Label>
+              <Input
+                id="propertyManagement"
+                type="number"
+                min="0"
+                max="100"
+                value={propertyManagementRate}
+                onChange={(e) => setPropertyManagementRate(Number(e.target.value))}
+              />
+            </div>
           </div>
           <div className="mt-4 flex justify-center">
             <button
@@ -293,6 +313,8 @@ const PropertyAnalyzer = () => {
                 <div><span className="font-semibold">Down Payment:</span> {formatPercentage(bestScenario.downPaymentPercentage)} ({formatCurrency(bestScenario.downPayment)})</div>
                 <div><span className="font-semibold">Interest Rate:</span> {formatPercentage(bestScenario.interestRate)}</div>
                 <div><span className="font-semibold">Cap Rate:</span> {formatPercentage(bestScenario.capRate)}</div>
+                <div><span className="font-semibold">Monthly Income:</span> {formatCurrency(bestScenario.monthlyIncome)}</div>
+                <div><span className="font-semibold">Property Management:</span> {formatCurrency(bestScenario.monthlyManagementCost)} ({formatPercentage(propertyManagementRate)})</div>
                 <div><span className="font-semibold">Monthly Cashflow:</span> {formatCurrency(bestScenario.monthlyCashflow)}</div>
                 <div><span className="font-semibold">Annual Cashflow:</span> {formatCurrency(bestScenario.annualCashflow)}</div>
                 <div><span className="font-semibold">Initial Investment:</span> {formatCurrency(bestScenario.initialInvestment)}</div>
@@ -470,7 +492,7 @@ const PropertyAnalyzer = () => {
       {/* Specific Scenarios Table */}
       <Card>
         <CardHeader>
-          <CardTitle>$900K Property Scenarios (6.0% Interest, 10% Cap Rate)</CardTitle>
+          <CardTitle>$900K Property Scenarios (7.0% Interest, 10% Cap Rate)</CardTitle>
           <CardDescription>Comparison of different down payment options</CardDescription>
         </CardHeader>
         <CardContent>
@@ -483,6 +505,7 @@ const PropertyAnalyzer = () => {
                   <th className="p-2 text-left">Monthly Mortgage</th>
                   <th className="p-2 text-left">Monthly Expenses</th>
                   <th className="p-2 text-left">Monthly Income</th>
+                  <th className="p-2 text-left">Property Mgmt</th>
                   <th className="p-2 text-left">Monthly Cashflow</th>
                   <th className="p-2 text-left">Annual Cashflow</th>
                   <th className="p-2 text-left">Initial Investment</th>
@@ -497,6 +520,7 @@ const PropertyAnalyzer = () => {
                     <td className="p-2">{formatCurrency(scenario.monthlyMortgagePayment)}</td>
                     <td className="p-2">{formatCurrency(scenario.totalMonthlyExpenses)}</td>
                     <td className="p-2">{formatCurrency(scenario.monthlyIncome)}</td>
+                    <td className="p-2">{formatCurrency(scenario.monthlyManagementCost)}</td>
                     <td className="p-2">{formatCurrency(scenario.monthlyCashflow)}</td>
                     <td className="p-2">{formatCurrency(scenario.annualCashflow)}</td>
                     <td className="p-2">{formatCurrency(scenario.initialInvestment)}</td>
