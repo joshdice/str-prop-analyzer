@@ -222,7 +222,7 @@ const PropertyAnalyzer = () => {
 
   return (
     <div className="flex flex-col space-y-8 w-full p-4">
-      <h1 className="text-3xl font-bold">Investment Property Analysis Tool</h1>
+      <h1 className="text-3xl font-bold">STR Investment Property Analysis Tool</h1>
       
       {/* Input Controls - Moved to top */}
       <Card>
