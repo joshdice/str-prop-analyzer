@@ -15,6 +15,7 @@ It was created as a Next.js app for the base project structure and the huge Type
 - npm
 - Node.js
 - React
+- npm install
 - npm install -D @shadcn/ui
 - npx shadcn@latest init
 - npx shadcn@latest add card
