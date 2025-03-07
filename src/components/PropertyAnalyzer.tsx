@@ -1,117 +1,109 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, ZAxis, Cell } from 'recharts';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  ScatterChart, Scatter, ZAxis, LineChart, Line
+} from 'recharts';
 
 const PropertyAnalyzer = () => {
-  // Configuration values
-  const [purchasePrices, setPurchasePrices] = useState([500000, 600000, 700000, 800000, 900000]);
-  const [downPaymentPercentages, setDownPaymentPercentages] = useState([25, 35, 45, 55, 65, 75]);
-  const [interestRates, setInterestRates] = useState([6.0, 6.5, 7.0, 7.5, 8.0]);
-  const [capRates, setCapRates] = useState([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+  // Define default fixed costs
+  const [fixedCosts, setFixedCosts] = useState({
+    propertyTax: 5000,  // Annual property tax
+    insurance: 2400,    // Annual insurance
+    hoa: 300,           // Monthly HOA
+    onboarding: 5000    // One-time onboarding costs
+  });
 
-  // Fixed costs
-  const [annualPropertyTax, setAnnualPropertyTax] = useState(5000);
-  const [annualInsurance, setAnnualInsurance] = useState(2400);
-  const [monthlyHOA, setMonthlyHOA] = useState(300);
-  const [onboardingCosts, setOnboardingCosts] = useState(25000);
-  const [propertyManagementRate, setPropertyManagementRate] = useState(25);
-
-  // Calculated values
-  const [scenarios, setScenarios] = useState([]);
+  // State for calculation results
+  const [results, setResults] = useState([]);
   const [topScenarios, setTopScenarios] = useState([]);
-  const [cashflowByDownPayment, setCashflowByDownPayment] = useState([]);
-  const [roiByCapRate, setRoiByCapRate] = useState([]);
-  const [roiByPurchasePrice, setRoiByPurchasePrice] = useState([]);
   const [bestScenario, setBestScenario] = useState(null);
   const [worstScenario, setWorstScenario] = useState(null);
-  const [specificScenarios, setSpecificScenarios] = useState([]);
-  const [hasCalculated, setHasCalculated] = useState(false);
+  const [roiByPrice, setRoiByPrice] = useState([]);
+  const [cashflowByDownpayment, setCashflowByDownpayment] = useState([]);
+  const [roiByCapRate, setRoiByCapRate] = useState([]);
 
-  // Initial calculation on load
+  // Define ranges based on user requirements
+  const purchasePrices = [500000, 600000, 700000, 800000, 900000];
+  const downPaymentPercentages = [25, 35, 45, 55, 65, 75];
+  const interestRates = [6.0, 6.5, 7.0, 7.5, 8.0];
+  const capRates = Array.from({ length: 15 }, (_, i) => i + 1);
+  
+  // Advanced parameters with defaults
+  const [advancedParams, setAdvancedParams] = useState({
+    propertyAppreciationRate: 3.0,  // Annual appreciation in percentage
+    rentIncreaseRate: 2.0,          // Annual rent increase in percentage
+    vacancyRate: 5.0,               // Vacancy rate in percentage
+    maintenancePercent: 1.0,        // Maintenance as percentage of property value
+    propertyManagementPercent: 8.0, // Property management fee as percentage of rental income
+    inflationRate: 2.5,             // Annual inflation rate for expenses
+    yearsToHold: 10,                // Investment horizon in years
+    sellingCostPercent: 6.0,        // Selling costs as percentage of sale price
+    taxRate: 25.0                   // Income tax rate for rental income
+  });
+  
+  // Calculate mortgage payment
+  const calculateMortgagePayment = (loanAmount, interestRate, loanTermYears) => {
+    const monthlyRate = interestRate / 100 / 12;
+    const numberOfPayments = loanTermYears * 12;
+    return loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) / 
+           (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
+  };
+
+  // Generate all scenarios and calculate metrics
   useEffect(() => {
-    calculateScenarios();
-  }, []);
-
-  const calculateScenarios = () => {
     const allScenarios = [];
     
     purchasePrices.forEach(purchasePrice => {
       downPaymentPercentages.forEach(downPaymentPercentage => {
         interestRates.forEach(interestRate => {
           capRates.forEach(capRate => {
-            // Calculate down payment
-            const downPayment = purchasePrice * (downPaymentPercentage / 100);
+            // Calculate downpayment amount
+            const downPayment = (downPaymentPercentage / 100) * purchasePrice;
             
             // Calculate loan amount
             const loanAmount = purchasePrice - downPayment;
             
-            // Calculate monthly mortgage payment
-            const monthlyInterestRate = interestRate / 100 / 12;
-            const loanTermMonths = 30 * 12;
-            const monthlyMortgagePayment = 
-              loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, loanTermMonths)) / 
-              (Math.pow(1 + monthlyInterestRate, loanTermMonths) - 1);
+            // Calculate mortgage payment (30-year fixed)
+            const monthlyMortgagePayment = calculateMortgagePayment(loanAmount, interestRate, 30);
             
-            // Calculate monthly costs
-            const monthlyPropertyTax = annualPropertyTax / 12;
-            const monthlyInsurance = annualInsurance / 12;
-            const totalMonthlyExpenses = monthlyMortgagePayment + monthlyPropertyTax + monthlyInsurance + monthlyHOA;
+            // Calculate monthly rental income based on cap rate
+            // Cap rate = Net Operating Income / Property Value
+            // Monthly rental income = (Cap Rate * Property Value / 12) + Monthly Expenses
+            const annualExpenses = fixedCosts.propertyTax + fixedCosts.insurance + (fixedCosts.hoa * 12);
+            const netOperatingIncome = (capRate / 100) * purchasePrice;
+            const monthlyRentalIncome = (netOperatingIncome + annualExpenses) / 12;
             
-            // Calculate income based on cap rate
-            const annualGrossIncome = purchasePrice * (capRate / 100);
-            const monthlyIncome = annualGrossIncome / 12;
-                        
-            // Calculate property management costs
-            const monthlyManagementCost = monthlyIncome * (propertyManagementRate / 100);
-
-            // Calculate cashflow
-            const monthlyCashflow = monthlyIncome - totalMonthlyExpenses - monthlyManagementCost;
+            // Calculate monthly and annual cash flows
+            const monthlyCosts = monthlyMortgagePayment + fixedCosts.hoa + (fixedCosts.propertyTax / 12) + (fixedCosts.insurance / 12);
+            const monthlyCashflow = monthlyRentalIncome - monthlyCosts;
             const annualCashflow = monthlyCashflow * 12;
             
             // Calculate ROI
-            const initialInvestment = downPayment + onboardingCosts;
-            const annualROI = (annualCashflow / initialInvestment) * 100;
+            const initialInvestment = downPayment + fixedCosts.onboarding;
+            const roi = (annualCashflow / initialInvestment) * 100;
             
-            // Calculate 5-year data
-            const fiveYearData = [];
-            for (let year = 1; year <= 5; year++) {
-              const yearlyData = {
-                year,
-                monthlyExpenses: totalMonthlyExpenses,
-                monthlyManagementCost,
-                monthlyIncome,
-                monthlyCashflow,
-                annualExpenses: totalMonthlyExpenses * 12,
-                annualManagementCost: monthlyManagementCost * 12,
-                annualIncome: monthlyIncome * 12,
-                annualCashflow,
-                cumulativeCashflow: annualCashflow * year
-              };
-              fiveYearData.push(yearlyData);
-            }
-            
-            // Store the scenario
+            // Calculate cash flow for the first 5 years (simplified, no appreciation or rent increases)
+            const cashflowByYear = Array(5).fill().map((_, i) => ({
+              year: i + 1,
+              monthlyCashflow,
+              annualCashflow
+            }));
+
             allScenarios.push({
               purchasePrice,
               downPaymentPercentage,
+              downPayment,
               interestRate,
               capRate,
-              downPayment,
               loanAmount,
               monthlyMortgagePayment,
-              monthlyPropertyTax,
-              monthlyInsurance,
-              monthlyHOA,
-              monthlyManagementCost,
-              totalMonthlyExpenses,
-              monthlyIncome,
+              monthlyRentalIncome,
+              monthlyCosts,
               monthlyCashflow,
               annualCashflow,
+              roi,
               initialInvestment,
-              annualROI,
-              fiveYearData,
+              cashflowByYear,
               isPositiveCashflow: monthlyCashflow > 0
             });
           });
@@ -119,429 +111,942 @@ const PropertyAnalyzer = () => {
       });
     });
     
-    // Sort scenarios by ROI
-    allScenarios.sort((a, b) => b.annualROI - a.annualROI);
+    // Sort scenarios by ROI (descending)
+    const sortedScenarios = [...allScenarios].sort((a, b) => b.roi - a.roi);
     
-    // Store all calculated scenarios
-    setScenarios(allScenarios);
+    // Set results
+    setResults(allScenarios);
+    setTopScenarios(sortedScenarios.slice(0, 10));
+    setBestScenario(sortedScenarios[0]);
+    setWorstScenario(sortedScenarios[sortedScenarios.length - 1]);
     
-    // Get top 10 scenarios
-    setTopScenarios(allScenarios.slice(0, 10));
+    // Prepare data for ROI by purchase price chart
+    const roiByPriceData = purchasePrices.map(price => {
+      const relevantScenarios = allScenarios.filter(s => s.purchasePrice === price);
+      const avgRoi = relevantScenarios.reduce((sum, s) => sum + s.roi, 0) / relevantScenarios.length;
+      const positiveCount = relevantScenarios.filter(s => s.monthlyCashflow > 0).length;
+      const negativeCount = relevantScenarios.length - positiveCount;
+      
+      return {
+        purchasePrice: price / 1000 + 'k',
+        averageRoi: avgRoi,
+        positiveCount,
+        negativeCount,
+        totalScenarios: relevantScenarios.length
+      };
+    });
+    setRoiByPrice(roiByPriceData);
     
-    // Set best and worst scenarios
-    setBestScenario(allScenarios[0]);
-    setWorstScenario(allScenarios[allScenarios.length - 1]);
+    // Prepare data for cashflow by downpayment chart
+    const cashflowByDownpaymentData = downPaymentPercentages.map(percentage => {
+      const relevantScenarios = allScenarios.filter(s => s.downPaymentPercentage === percentage);
+      const avgMonthlyCashflow = relevantScenarios.reduce((sum, s) => sum + s.monthlyCashflow, 0) / relevantScenarios.length;
+      
+      return {
+        downPaymentPercentage: percentage + '%',
+        averageMonthlyCashflow: avgMonthlyCashflow
+      };
+    });
+    setCashflowByDownpayment(cashflowByDownpaymentData);
     
-    // Get specific scenarios
-    const specificScenariosFiltered = allScenarios.filter(scenario => 
-      scenario.purchasePrice === 900000 && 
-      scenario.interestRate === 7.0 && 
-      scenario.capRate === 10
-    );
+    // Prepare data for ROI by cap rate chart
+    const roiByCapRateData = capRates.map(rate => {
+      const relevantScenarios = allScenarios.filter(s => s.capRate === rate);
+      const avgRoi = relevantScenarios.reduce((sum, s) => sum + s.roi, 0) / relevantScenarios.length;
+      const minRoi = Math.min(...relevantScenarios.map(s => s.roi));
+      const maxRoi = Math.max(...relevantScenarios.map(s => s.roi));
+      
+      return {
+        capRate: rate + '%',
+        averageRoi: avgRoi,
+        minRoi,
+        maxRoi
+      };
+    });
+    setRoiByCapRate(roiByCapRateData);
     
-    // Sort by down payment percentage
-    specificScenariosFiltered.sort((a, b) => a.downPaymentPercentage - b.downPaymentPercentage);
-    
-    setSpecificScenarios(specificScenariosFiltered);
-    
-    // Set that calculations have been performed
-    setHasCalculated(true);
-  };
-  
+  }, [fixedCosts]);
+
   // Format currency
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value);
   };
+
+  // Custom tooltip for ROI by price chart
+  const RoiTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="p-4 bg-white border rounded shadow">
+          <p className="font-bold">{data.purchasePrice}</p>
+          <p>Average ROI: {data.averageRoi.toFixed(2)}%</p>
+          <p>Positive cashflow scenarios: {data.positiveCount} ({((data.positiveCount / data.totalScenarios) * 100).toFixed(1)}%)</p>
+          <p>Negative cashflow scenarios: {data.negativeCount} ({((data.negativeCount / data.totalScenarios) * 100).toFixed(1)}%)</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Toggle for advanced settings
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   
-  // Format percentage
-  const formatPercentage = (value) => {
-    return `${value.toFixed(2)}%`;
-  };
-
-  // Download raw data as CSV
-  const downloadRawData = () => {
-    if (scenarios.length === 0) return;
+  // Filter state
+  const [filters, setFilters] = useState({
+    minCashflow: -5000,
+    minRoi: -20,
+    maxPrice: 1000000
+  });
+  
+  // Active tab state
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Apply filters to results
+  const filteredResults = results.filter(scenario => 
+    scenario.monthlyCashflow >= filters.minCashflow && 
+    scenario.roi >= filters.minRoi &&
+    scenario.purchasePrice <= filters.maxPrice
+  );
+  
+  // Calculate additional metrics for best scenario
+  const calculateMetrics = (scenario) => {
+    if (!scenario) return null;
     
-    // Create CSV header
-    const headers = [
-      'Purchase Price',
-      'Down Payment %',
-      'Down Payment $',
-      'Interest Rate',
-      'Cap Rate',
-      'Loan Amount',
-      'Monthly Mortgage',
-      'Monthly Property Tax',
-      'Monthly Insurance',
-      'Monthly HOA',
-      'Monthly Management',
-      'Total Monthly Expenses',
-      'Monthly Income',
-      'Monthly Cashflow',
-      'Annual Cashflow',
-      'Initial Investment',
-      'ROI'
-    ];
+    const metrics = {
+      cashOnCash: scenario.roi,
+      totalReturnOnInvestment: 0,
+      internalRateOfReturn: 0,
+      breakEvenPoint: 0
+    };
     
-    // Create CSV content
-    let csvContent = headers.join(',') + '\n';
+    // Calculate break-even point (months)
+    metrics.breakEvenPoint = scenario.initialInvestment / (scenario.monthlyCashflow > 0 ? scenario.monthlyCashflow : 1);
     
-    scenarios.forEach(scenario => {
-      const row = [
-        scenario.purchasePrice,
-        scenario.downPaymentPercentage,
-        scenario.downPayment,
-        scenario.interestRate,
-        scenario.capRate,
-        scenario.loanAmount,
-        scenario.monthlyMortgagePayment,
-        scenario.monthlyPropertyTax,
-        scenario.monthlyInsurance,
-        scenario.monthlyHOA,
-        scenario.monthlyManagementCost,
-        scenario.totalMonthlyExpenses,
-        scenario.monthlyIncome,
-        scenario.monthlyCashflow,
-        scenario.annualCashflow,
-        scenario.initialInvestment,
-        scenario.annualROI
-      ];
+    // Calculate future value after holding period
+    const futurePropertyValue = scenario.purchasePrice * Math.pow(1 + advancedParams.propertyAppreciationRate / 100, advancedParams.yearsToHold);
+    const sellingCosts = futurePropertyValue * (advancedParams.sellingCostPercent / 100);
+    const netSaleProceeds = futurePropertyValue - sellingCosts - scenario.loanAmount;
+    
+    // Calculate cumulative cashflow over holding period
+    let cumulativeCashflow = 0;
+    const futureCashflows = [];
+    let currentRent = scenario.monthlyRentalIncome;
+    let currentExpenses = scenario.monthlyCosts - scenario.monthlyMortgagePayment;
+    let yearlyTaxes = 0;
+    
+    for (let year = 1; year <= advancedParams.yearsToHold; year++) {
+      // Increase rent by rent increase rate
+      if (year > 1) {
+        currentRent *= (1 + advancedParams.rentIncreaseRate / 100);
+        currentExpenses *= (1 + advancedParams.inflationRate / 100);
+      }
       
-      csvContent += row.join(',') + '\n';
-    });
+      // Calculate annual cash flow considering vacancy
+      const effectiveAnnualRent = currentRent * 12 * (1 - advancedParams.vacancyRate / 100);
+      const maintenanceCost = (advancedParams.maintenancePercent / 100) * scenario.purchasePrice;
+      const propertyManagement = (advancedParams.propertyManagementPercent / 100) * effectiveAnnualRent;
+      const annualExpenses = (currentExpenses * 12) + maintenanceCost + propertyManagement;
+      const mortgagePayments = scenario.monthlyMortgagePayment * 12;
+      
+      const annualOperatingIncome = effectiveAnnualRent - annualExpenses;
+      const annualCashflow = annualOperatingIncome - mortgagePayments;
+      
+      // Tax considerations
+      const interestPortion = calculateInterestPortion(scenario.loanAmount, scenario.interestRate, 30, year);
+      const depreciation = scenario.purchasePrice * 0.8 / 27.5; // Building value depreciated over 27.5 years
+      const taxableIncome = annualOperatingIncome - interestPortion - depreciation;
+      const taxAmount = Math.max(0, taxableIncome * (advancedParams.taxRate / 100));
+      yearlyTaxes = taxAmount;
+      
+      const afterTaxCashflow = annualCashflow - taxAmount;
+      cumulativeCashflow += afterTaxCashflow;
+      
+      futureCashflows.push({
+        year,
+        effectiveRent: effectiveAnnualRent,
+        operatingExpenses: annualExpenses,
+        operatingIncome: annualOperatingIncome,
+        mortgagePayments,
+        cashflowBeforeTax: annualCashflow,
+        taxableIncome,
+        taxAmount,
+        afterTaxCashflow,
+        cumulativeCashflow
+      });
+    }
     
-    // Create blob and download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    // Calculate total return
+    metrics.totalReturnOnInvestment = ((netSaleProceeds + cumulativeCashflow) / scenario.initialInvestment - 1) * 100;
     
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'property_investment_scenarios.csv');
-    link.style.visibility = 'hidden';
+    // Calculate approximate IRR (simplified)
+    const initialOutflow = -scenario.initialInvestment;
+    const yearlyInflows = futureCashflows.map(cf => cf.afterTaxCashflow);
+    yearlyInflows[yearlyInflows.length - 1] += netSaleProceeds;
     
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Simplified IRR calculation
+    let irr = 0;
+    for (let r = 0.01; r <= 0.5; r += 0.01) {
+      const npv = initialOutflow + yearlyInflows.reduce((sum, inflow, i) => sum + inflow / Math.pow(1 + r, i + 1), 0);
+      if (npv >= 0) {
+        irr = r * 100;
+        break;
+      }
+    }
+    metrics.internalRateOfReturn = irr;
+    
+    return {
+      ...metrics,
+      futureCashflows,
+      netSaleProceeds,
+      futurePropertyValue,
+      yearlyTaxes
+    };
   };
-
+  
+  // Helper function to calculate interest portion of mortgage payment for a given year
+  const calculateInterestPortion = (loanAmount, interestRate, loanTermYears, currentYear) => {
+    const monthlyRate = interestRate / 100 / 12;
+    const numberOfPayments = loanTermYears * 12;
+    const monthlyPayment = calculateMortgagePayment(loanAmount, interestRate, loanTermYears);
+    
+    let remainingBalance = loanAmount;
+    let totalInterestThisYear = 0;
+    
+    // Calculate for previous years
+    for (let year = 1; year < currentYear; year++) {
+      for (let month = 1; month <= 12; month++) {
+        const interestPayment = remainingBalance * monthlyRate;
+        const principalPayment = monthlyPayment - interestPayment;
+        remainingBalance -= principalPayment;
+      }
+    }
+    
+    // Calculate for current year
+    for (let month = 1; month <= 12; month++) {
+      const interestPayment = remainingBalance * monthlyRate;
+      totalInterestThisYear += interestPayment;
+      const principalPayment = monthlyPayment - interestPayment;
+      remainingBalance -= principalPayment;
+    }
+    
+    return totalInterestThisYear;
+  };
+  
+  // Calculate advanced metrics for best scenario
+  const bestScenarioMetrics = bestScenario ? calculateMetrics(bestScenario) : null;
+  
   return (
-    <div className="flex flex-col space-y-8 w-full p-4">
-      <h1 className="text-3xl font-bold">STR Investment Property Analysis Tool</h1>
+    <div className="p-6 max-w-6xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Advanced Investment Property Analysis Tool</h1>
       
-      {/* Input Controls - Moved to top */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Adjust Fixed Costs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="propertyTax">Annual Property Tax</Label>
-              <Input
-                id="propertyTax"
-                type="number"
-                value={annualPropertyTax}
-                onChange={(e) => setAnnualPropertyTax(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="insurance">Annual Insurance</Label>
-              <Input
-                id="insurance"
-                type="number"
-                value={annualInsurance}
-                onChange={(e) => setAnnualInsurance(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="hoa">Monthly HOA</Label>
-              <Input
-                id="hoa"
-                type="number"
-                value={monthlyHOA}
-                onChange={(e) => setMonthlyHOA(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="onboarding">Onboarding Costs</Label>
-              <Input
-                id="onboarding"
-                type="number"
-                value={onboardingCosts}
-                onChange={(e) => setOnboardingCosts(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="propertyManagement">Property Management (%)</Label>
-              <Input
-                id="propertyManagement"
-                type="number"
-                min="0"
-                max="100"
-                value={propertyManagementRate}
-                onChange={(e) => setPropertyManagementRate(Number(e.target.value))}
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex justify-center">
-            <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={calculateScenarios}
-            >
-              {hasCalculated ? 'Recalculate Results' : 'Calculate Results'}
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Best and Worst Scenarios */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {bestScenario && (
-          <Card className="bg-green-50">
-            <CardHeader>
-              <CardTitle>Best ROI Scenario</CardTitle>
-              <CardDescription>Highest return on investment</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div><span className="font-semibold">Purchase Price:</span> {formatCurrency(bestScenario.purchasePrice)}</div>
-                <div><span className="font-semibold">Down Payment:</span> {formatPercentage(bestScenario.downPaymentPercentage)} ({formatCurrency(bestScenario.downPayment)})</div>
-                <div><span className="font-semibold">Interest Rate:</span> {formatPercentage(bestScenario.interestRate)}</div>
-                <div><span className="font-semibold">Cap Rate:</span> {formatPercentage(bestScenario.capRate)}</div>
-                <div><span className="font-semibold">Monthly Income:</span> {formatCurrency(bestScenario.monthlyIncome)}</div>
-                <div><span className="font-semibold">Property Management:</span> {formatCurrency(bestScenario.monthlyManagementCost)} ({formatPercentage(propertyManagementRate)})</div>
-                <div><span className="font-semibold">Monthly Cashflow:</span> {formatCurrency(bestScenario.monthlyCashflow)}</div>
-                <div><span className="font-semibold">Annual Cashflow:</span> {formatCurrency(bestScenario.annualCashflow)}</div>
-                <div><span className="font-semibold">Initial Investment:</span> {formatCurrency(bestScenario.initialInvestment)}</div>
-                <div className="font-bold"><span>ROI:</span> {formatPercentage(bestScenario.annualROI)}</div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        
-        {worstScenario && (
-          <Card className="bg-red-50">
-            <CardHeader>
-              <CardTitle>Worst ROI Scenario</CardTitle>
-              <CardDescription>Lowest return on investment</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div><span className="font-semibold">Purchase Price:</span> {formatCurrency(worstScenario.purchasePrice)}</div>
-                <div><span className="font-semibold">Down Payment:</span> {formatPercentage(worstScenario.downPaymentPercentage)} ({formatCurrency(worstScenario.downPayment)})</div>
-                <div><span className="font-semibold">Interest Rate:</span> {formatPercentage(worstScenario.interestRate)}</div>
-                <div><span className="font-semibold">Cap Rate:</span> {formatPercentage(worstScenario.capRate)}</div>
-                <div><span className="font-semibold">Monthly Cashflow:</span> {formatCurrency(worstScenario.monthlyCashflow)}</div>
-                <div><span className="font-semibold">Annual Cashflow:</span> {formatCurrency(worstScenario.annualCashflow)}</div>
-                <div><span className="font-semibold">Initial Investment:</span> {formatCurrency(worstScenario.initialInvestment)}</div>
-                <div className="font-bold"><span>ROI:</span> {formatPercentage(worstScenario.annualROI)}</div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {/* Navigation Tabs */}
+      <div className="flex border-b mb-6">
+        <button 
+          className={`px-4 py-2 font-medium ${activeTab === 'dashboard' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          Dashboard
+        </button>
+        <button 
+          className={`px-4 py-2 font-medium ${activeTab === 'detailed' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+          onClick={() => setActiveTab('detailed')}
+        >
+          Detailed Analysis
+        </button>
+        <button 
+          className={`px-4 py-2 font-medium ${activeTab === 'projections' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+          onClick={() => setActiveTab('projections')}
+        >
+          Long-term Projections
+        </button>
+        <button 
+          className={`px-4 py-2 font-medium ${activeTab === 'settings' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          Settings
+        </button>
       </div>
       
-      {/* Visualizations */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* ROI by Purchase Price */}
-        <Card>
-          <CardHeader>
-            <CardTitle>ROI Distribution by Purchase Price</CardTitle>
-            <CardDescription>Average ROI and positive cashflow percentage</CardDescription>
-          </CardHeader>
-          <CardContent className="h-80">
+      {/* Filter Controls */}
+      <div className="mb-8 p-4 bg-gray-50 rounded-lg border">
+        <div className="flex flex-wrap items-center gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Min Monthly Cashflow</label>
+            <input 
+              type="number" 
+              className="w-32 p-2 border rounded"
+              value={filters.minCashflow}
+              onChange={(e) => setFilters({...filters, minCashflow: Number(e.target.value)})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Min ROI (%)</label>
+            <input 
+              type="number" 
+              className="w-32 p-2 border rounded"
+              value={filters.minRoi}
+              onChange={(e) => setFilters({...filters, minRoi: Number(e.target.value)})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Max Price</label>
+            <input 
+              type="number" 
+              className="w-32 p-2 border rounded"
+              value={filters.maxPrice}
+              onChange={(e) => setFilters({...filters, maxPrice: Number(e.target.value)})}
+            />
+          </div>
+          <div className="ml-4">
+            <p className="text-sm text-gray-600">Showing {filteredResults.length} of {results.length} scenarios</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Projections Tab */}
+      {activeTab === 'projections' && bestScenario && bestScenarioMetrics && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-4">Long-term Investment Projections</h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div className="bg-white p-6 rounded-lg border">
+              <h3 className="text-xl font-bold mb-4">Property Value Projection</h3>
+              <p className="mb-4 text-gray-600">Property value over {advancedParams.yearsToHold} years with {advancedParams.propertyAppreciationRate}% annual appreciation.</p>
+              <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={Array.from({ length: advancedParams.yearsToHold + 1 }, (_, i) => ({
+                      year: i,
+                      propertyValue: bestScenario.purchasePrice * Math.pow(1 + advancedParams.propertyAppreciationRate / 100, i),
+                      mortgageBalance: i === 0 ? bestScenario.loanAmount : 
+                        calculateMortgageBalance(bestScenario.loanAmount, bestScenario.interestRate, 30, i),
+                      equity: (bestScenario.purchasePrice * Math.pow(1 + advancedParams.propertyAppreciationRate / 100, i)) - 
+                        (i === 0 ? bestScenario.loanAmount : 
+                          calculateMortgageBalance(bestScenario.loanAmount, bestScenario.interestRate, 30, i))
+                    }))}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" label={{ value: 'Year', position: 'insideBottom', offset: -5 }} />
+                    <YAxis label={{ value: 'Value ($)', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip formatter={(value) => [formatCurrency(value), '']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="propertyValue" name="Property Value" stroke="#8884d8" strokeWidth={2} />
+                    <Line type="monotone" dataKey="mortgageBalance" name="Mortgage Balance" stroke="#ff8042" />
+                    <Line type="monotone" dataKey="equity" name="Owner's Equity" stroke="#82ca9d" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg border">
+              <h3 className="text-xl font-bold mb-4">Cumulative Cash Flow</h3>
+              <p className="mb-4 text-gray-600">Cumulative after-tax cash flow over {advancedParams.yearsToHold} years.</p>
+              <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={bestScenarioMetrics.futureCashflows}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" label={{ value: 'Year', position: 'insideBottom', offset: -5 }} />
+                    <YAxis label={{ value: 'Cumulative Cash Flow ($)', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip formatter={(value) => [formatCurrency(value), '']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="cumulativeCashflow" name="Cumulative Cash Flow" stroke="#8884d8" strokeWidth={2} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="afterTaxCashflow" 
+                      name="Annual Cash Flow" 
+                      stroke="#82ca9d" 
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg border mb-8">
+            <h3 className="text-xl font-bold mb-4">Total Return Breakdown</h3>
+            <p className="mb-4 text-gray-600">Breakdown of returns over {advancedParams.yearsToHold} year holding period.</p>
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    {
+                      name: 'Initial Investment',
+                      value: -bestScenario.initialInvestment
+                    },
+                    {
+                      name: 'Cumulative Cash Flow',
+                      value: bestScenarioMetrics.futureCashflows[bestScenarioMetrics.futureCashflows.length - 1].cumulativeCashflow
+                    },
+                    {
+                      name: 'Net Sale Proceeds',
+                      value: bestScenarioMetrics.netSaleProceeds
+                    },
+                    {
+                      name: 'Total Return',
+                      value: bestScenarioMetrics.netSaleProceeds + 
+                        bestScenarioMetrics.futureCashflows[bestScenarioMetrics.futureCashflows.length - 1].cumulativeCashflow - 
+                        bestScenario.initialInvestment
+                    }
+                  ]}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis label={{ value: 'Value ($)', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip formatter={(value) => [formatCurrency(value), '']} />
+                  <Bar 
+                    dataKey="value" 
+                    fill={(entry) => entry.value < 0 ? '#ff8042' : '#82ca9d'} 
+                    name="Amount" 
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg border">
+            <h3 className="text-xl font-bold mb-4">Return Metrics Summary</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-bold text-lg text-blue-800 mb-2">Cash-on-Cash ROI</h4>
+                <p className="text-3xl font-bold text-blue-600">{bestScenario.roi.toFixed(2)}%</p>
+                <p className="text-sm text-gray-600 mt-2">First year return on investment based on annual cash flow.</p>
+              </div>
+              
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <h4 className="font-bold text-lg text-green-800 mb-2">Total ROI</h4>
+                <p className="text-3xl font-bold text-green-600">{bestScenarioMetrics.totalReturnOnInvestment.toFixed(2)}%</p>
+                <p className="text-sm text-gray-600 mt-2">Total return including cash flow and equity appreciation over {advancedParams.yearsToHold} years.</p>
+              </div>
+              
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h4 className="font-bold text-lg text-purple-800 mb-2">Internal Rate of Return</h4>
+                <p className="text-3xl font-bold text-purple-600">{bestScenarioMetrics.internalRateOfReturn.toFixed(2)}%</p>
+                <p className="text-sm text-gray-600 mt-2">Annualized rate of return accounting for the time value of money.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'dashboard' && bestScenario && worstScenario && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="p-6 bg-green-50 rounded-lg border border-green-200">
+            <h2 className="text-xl font-bold text-green-800 mb-3">Best ROI Scenario</h2>
+            <div className="grid grid-cols-2 gap-2">
+              <div>Purchase Price:</div>
+              <div className="font-semibold">{formatCurrency(bestScenario.purchasePrice)}</div>
+              
+              <div>Down Payment:</div>
+              <div className="font-semibold">{bestScenario.downPaymentPercentage}% ({formatCurrency(bestScenario.downPayment)})</div>
+              
+              <div>Interest Rate:</div>
+              <div className="font-semibold">{bestScenario.interestRate}%</div>
+              
+              <div>Cap Rate:</div>
+              <div className="font-semibold">{bestScenario.capRate}%</div>
+              
+              <div>Monthly Cashflow:</div>
+              <div className="font-semibold text-green-700">{formatCurrency(bestScenario.monthlyCashflow)}</div>
+              
+              <div>ROI:</div>
+              <div className="font-semibold text-green-700">{bestScenario.roi.toFixed(2)}%</div>
+              
+              {bestScenarioMetrics && (
+                <>
+                  <div>Total ROI (10yr):</div>
+                  <div className="font-semibold text-green-700">{bestScenarioMetrics.totalReturnOnInvestment.toFixed(2)}%</div>
+                  
+                  <div>IRR:</div>
+                  <div className="font-semibold text-green-700">{bestScenarioMetrics.internalRateOfReturn.toFixed(2)}%</div>
+                  
+                  <div>Break-even (months):</div>
+                  <div className="font-semibold">{bestScenarioMetrics.breakEvenPoint.toFixed(1)}</div>
+                </>
+              )}
+            </div>
+          </div>
+          
+          <div className="p-6 bg-red-50 rounded-lg border border-red-200">
+            <h2 className="text-xl font-bold text-red-800 mb-3">Worst ROI Scenario</h2>
+            <div className="grid grid-cols-2 gap-2">
+              <div>Purchase Price:</div>
+              <div className="font-semibold">{formatCurrency(worstScenario.purchasePrice)}</div>
+              
+              <div>Down Payment:</div>
+              <div className="font-semibold">{worstScenario.downPaymentPercentage}% ({formatCurrency(worstScenario.downPayment)})</div>
+              
+              <div>Interest Rate:</div>
+              <div className="font-semibold">{worstScenario.interestRate}%</div>
+              
+              <div>Cap Rate:</div>
+              <div className="font-semibold">{worstScenario.capRate}%</div>
+              
+              <div>Monthly Cashflow:</div>
+              <div className="font-semibold text-red-700">{formatCurrency(worstScenario.monthlyCashflow)}</div>
+              
+              <div>ROI:</div>
+              <div className="font-semibold text-red-700">{worstScenario.roi.toFixed(2)}%</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'dashboard' && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-4">ROI Distribution by Purchase Price</h2>
+          <p className="mb-4 text-gray-600">This chart shows the average ROI for each purchase price point, along with the number of positive and negative cashflow scenarios.</p>
+          <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={roiByPurchasePrice}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
+              <BarChart data={roiByPrice} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="purchasePrice" label={{ value: 'Purchase Price ($K)', position: 'insideBottom', offset: -5 }} />
-                <YAxis yAxisId="left" label={{ value: 'Avg ROI (%)', angle: -90, position: 'insideLeft' }} />
-                <YAxis yAxisId="right" orientation="right" label={{ value: '% Positive Cashflow', angle: 90, position: 'insideRight' }} />
-                <Tooltip formatter={(value, name) => [value.toFixed(2) + (name === 'avgROI' ? '%' : '%'), name === 'avgROI' ? 'Average ROI' : '% Positive Cashflow']} />
+                <XAxis dataKey="purchasePrice" />
+                <YAxis yAxisId="left" orientation="left" label={{ value: 'Average ROI (%)', angle: -90, position: 'insideLeft' }} />
+                <YAxis yAxisId="right" orientation="right" label={{ value: 'Scenario Count', angle: 90, position: 'insideRight' }} />
+                <Tooltip content={<RoiTooltip />} />
                 <Legend />
-                <Bar yAxisId="left" dataKey="avgROI" name="Average ROI" fill="#8884d8" />
-                <Bar yAxisId="right" dataKey="positiveCashflowPercentage" name="% Positive Cashflow" fill="#82ca9d" />
+                <Bar yAxisId="left" dataKey="averageRoi" fill="#8884d8" name="Average ROI (%)" />
+                <Bar yAxisId="right" dataKey="positiveCount" stackId="a" fill="#82ca9d" name="Positive Cashflow Scenarios" />
+                <Bar yAxisId="right" dataKey="negativeCount" stackId="a" fill="#ff8042" name="Negative Cashflow Scenarios" />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
-        {/* Average Monthly Cashflow by Down Payment */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Monthly Cashflow by Down Payment</CardTitle>
-            <CardDescription>Average monthly cashflow based on down payment percentage</CardDescription>
-          </CardHeader>
-          <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={cashflowByDownPayment}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'dashboard' && (
+        <>
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-4">Average Monthly Cashflow by Down Payment Percentage</h2>
+            <p className="mb-4 text-gray-600">This chart shows how the average monthly cashflow changes with different down payment percentages.</p>
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={cashflowByDownpayment} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="downPaymentPercentage" />
+                  <YAxis label={{ value: 'Average Monthly Cashflow ($)', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip formatter={(value) => ['
+      
+      {/* Settings Tab */}
+      {activeTab === 'settings' && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-4">Analysis Settings</h2>
+          
+          <div className="mb-8">
+            <h3 className="text-xl font-bold mb-4">Fixed Costs</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Annual Property Tax</label>
+                <input 
+                  type="number" 
+                  className="w-full p-2 border rounded"
+                  value={fixedCosts.propertyTax}
+                  onChange={(e) => setFixedCosts({...fixedCosts, propertyTax: Number(e.target.value)})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Annual Insurance</label>
+                <input 
+                  type="number" 
+                  className="w-full p-2 border rounded"
+                  value={fixedCosts.insurance}
+                  onChange={(e) => setFixedCosts({...fixedCosts, insurance: Number(e.target.value)})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Monthly HOA</label>
+                <input 
+                  type="number" 
+                  className="w-full p-2 border rounded"
+                  value={fixedCosts.hoa}
+                  onChange={(e) => setFixedCosts({...fixedCosts, hoa: Number(e.target.value)})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Onboarding Costs</label>
+                <input 
+                  type="number" 
+                  className="w-full p-2 border rounded"
+                  value={fixedCosts.onboarding}
+                  onChange={(e) => setFixedCosts({...fixedCosts, onboarding: Number(e.target.value)})}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">Advanced Settings</h3>
+              <button 
+                className="px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="downPaymentPercentage" label={{ value: 'Down Payment (%)', position: 'insideBottom', offset: -5 }} />
-                <YAxis label={{ value: 'Avg Monthly Cashflow ($)', angle: -90, position: 'insideLeft' }} />
-                <Tooltip formatter={(value) => [`$${value.toFixed(2)}`, 'Average Monthly Cashflow']} />
-                <Legend />
-                <Line type="monotone" dataKey="avgMonthlyCashflow" name="Average Monthly Cashflow" stroke="#8884d8" activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
-        {/* ROI Distribution by Cap Rate */}
-        <Card>
-          <CardHeader>
-            <CardTitle>ROI Distribution by Cap Rate</CardTitle>
-            <CardDescription>Min, average, and max ROI for each cap rate</CardDescription>
-          </CardHeader>
-          <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={roiByCapRate}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="capRate" label={{ value: 'Cap Rate (%)', position: 'insideBottom', offset: -5 }} />
-                <YAxis label={{ value: 'ROI (%)', angle: -90, position: 'insideLeft' }} />
-                <Tooltip formatter={(value) => [`${value.toFixed(2)}%`, 'ROI']} />
-                <Legend />
-                <Line type="monotone" dataKey="minROI" name="Min ROI" stroke="#ff8042" dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="avgROI" name="Avg ROI" stroke="#8884d8" dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="maxROI" name="Max ROI" stroke="#82ca9d" dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
-        {/* Scenario Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Scenario Distribution</CardTitle>
-            <CardDescription>All scenarios plotted by ROI and initial investment</CardDescription>
-          </CardHeader>
-          <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="initialInvestment" name="Initial Investment" label={{ value: 'Initial Investment ($)', position: 'insideBottom', offset: -5 }} />
-                <YAxis type="number" dataKey="annualROI" name="ROI" label={{ value: 'ROI (%)', angle: -90, position: 'insideLeft' }} />
-                <ZAxis type="number" range={[50, 50]} />
-                <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(value, name) => [name === 'annualROI' ? `${value.toFixed(2)}%` : `$${value.toLocaleString()}`, name === 'annualROI' ? 'Annual ROI' : 'Initial Investment']} />
-                <Legend />
-                <Scatter name="All Scenarios" data={scenarios.map((s, index) => ({ ...s, index }))} fill="#8884d8">
-                  {scenarios.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.isPositiveCashflow ? "#82ca9d" : "#ff8042"} />
+                {showAdvancedSettings ? 'Hide Advanced Settings' : 'Show Advanced Settings'}
+              </button>
+            </div>
+            
+            {showAdvancedSettings && (
+              <div className="bg-gray-50 p-6 rounded-lg border">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Property Appreciation Rate (%)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.propertyAppreciationRate}
+                      onChange={(e) => setAdvancedParams({...advancedParams, propertyAppreciationRate: Number(e.target.value)})}
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Annual Rent Increase (%)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.rentIncreaseRate}
+                      onChange={(e) => setAdvancedParams({...advancedParams, rentIncreaseRate: Number(e.target.value)})}
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Vacancy Rate (%)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.vacancyRate}
+                      onChange={(e) => setAdvancedParams({...advancedParams, vacancyRate: Number(e.target.value)})}
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Maintenance (% of Property Value)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.maintenancePercent}
+                      onChange={(e) => setAdvancedParams({...advancedParams, maintenancePercent: Number(e.target.value)})}
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Property Management (% of Rent)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.propertyManagementPercent}
+                      onChange={(e) => setAdvancedParams({...advancedParams, propertyManagementPercent: Number(e.target.value)})}
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Expense Inflation Rate (%)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.inflationRate}
+                      onChange={(e) => setAdvancedParams({...advancedParams, inflationRate: Number(e.target.value)})}
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Years to Hold</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.yearsToHold}
+                      onChange={(e) => setAdvancedParams({...advancedParams, yearsToHold: Number(e.target.value)})}
+                      min="1"
+                      max="30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Selling Costs (% of Sale Price)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.sellingCostPercent}
+                      onChange={(e) => setAdvancedParams({...advancedParams, sellingCostPercent: Number(e.target.value)})}
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Income Tax Rate (%)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-2 border rounded"
+                      value={advancedParams.taxRate}
+                      onChange={(e) => setAdvancedParams({...advancedParams, taxRate: Number(e.target.value)})}
+                      step="0.1"
+                    />
+      
+      <div className="text-sm text-gray-500">
+        <p>Note: This tool calculates 5-year projections with fixed costs and no appreciation or rent increases.</p>
+      </div>
+    </div>
+  );
+};
+
+export default PropertyAnalyzer;
+ + value.toFixed(2), 'Avg Monthly Cashflow']} />
+                  <Legend />
+                  <Line type="monotone" dataKey="averageMonthlyCashflow" stroke="#8884d8" activeDot={{ r: 8 }} name="Avg Monthly Cashflow" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-4">ROI Distribution by Cap Rate</h2>
+            <p className="mb-4 text-gray-600">This chart shows how ROI varies with different cap rates, including minimum, average, and maximum values.</p>
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={roiByCapRate} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="capRate" />
+                  <YAxis label={{ value: 'ROI (%)', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="minRoi" stroke="#ff8042" name="Minimum ROI (%)" />
+                  <Line type="monotone" dataKey="averageRoi" stroke="#8884d8" name="Average ROI (%)" strokeWidth={2} />
+                  <Line type="monotone" dataKey="maxRoi" stroke="#82ca9d" name="Maximum ROI (%)" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-4">Top 10 Scenarios by ROI</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white border border-gray-200">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="py-2 px-4 border">Purchase Price</th>
+                    <th className="py-2 px-4 border">Down Payment</th>
+                    <th className="py-2 px-4 border">Interest Rate</th>
+                    <th className="py-2 px-4 border">Cap Rate</th>
+                    <th className="py-2 px-4 border">Monthly Cashflow</th>
+                    <th className="py-2 px-4 border">Annual Cashflow</th>
+                    <th className="py-2 px-4 border">Initial Investment</th>
+                    <th className="py-2 px-4 border">ROI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topScenarios.map((scenario, index) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                      <td className="py-2 px-4 border">{formatCurrency(scenario.purchasePrice)}</td>
+                      <td className="py-2 px-4 border">{scenario.downPaymentPercentage}% ({formatCurrency(scenario.downPayment)})</td>
+                      <td className="py-2 px-4 border">{scenario.interestRate}%</td>
+                      <td className="py-2 px-4 border">{scenario.capRate}%</td>
+                      <td className="py-2 px-4 border">{formatCurrency(scenario.monthlyCashflow)}</td>
+                      <td className="py-2 px-4 border">{formatCurrency(scenario.annualCashflow)}</td>
+                      <td className="py-2 px-4 border">{formatCurrency(scenario.initialInvestment)}</td>
+                      <td className="py-2 px-4 border">{scenario.roi.toFixed(2)}%</td>
+                    </tr>
                   ))}
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+      
+      {/* Detailed Analysis Tab */}
+      {activeTab === 'detailed' && bestScenario && bestScenarioMetrics && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-4">Detailed Analysis of Best Scenario</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white p-6 rounded-lg border">
+              <h3 className="text-xl font-bold mb-4">Financial Metrics</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="font-medium">Purchase Price:</div>
+                <div>{formatCurrency(bestScenario.purchasePrice)}</div>
+                
+                <div className="font-medium">Down Payment:</div>
+                <div>{formatCurrency(bestScenario.downPayment)} ({bestScenario.downPaymentPercentage}%)</div>
+                
+                <div className="font-medium">Loan Amount:</div>
+                <div>{formatCurrency(bestScenario.loanAmount)}</div>
+                
+                <div className="font-medium">Interest Rate:</div>
+                <div>{bestScenario.interestRate}%</div>
+                
+                <div className="font-medium">Monthly Mortgage:</div>
+                <div>{formatCurrency(bestScenario.monthlyMortgagePayment)}</div>
+                
+                <div className="font-medium">Monthly Rental Income:</div>
+                <div>{formatCurrency(bestScenario.monthlyRentalIncome)}</div>
+                
+                <div className="font-medium">Monthly Expenses:</div>
+                <div>{formatCurrency(bestScenario.monthlyCosts - bestScenario.monthlyMortgagePayment)}</div>
+                
+                <div className="font-medium">Monthly Cashflow:</div>
+                <div className={bestScenario.monthlyCashflow > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {formatCurrency(bestScenario.monthlyCashflow)}
+                </div>
+                
+                <div className="font-medium">Annual Cashflow:</div>
+                <div className={bestScenario.annualCashflow > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {formatCurrency(bestScenario.annualCashflow)}
+                </div>
+                
+                <div className="font-medium">Cash-on-Cash ROI:</div>
+                <div className={bestScenario.roi > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {bestScenario.roi.toFixed(2)}%
+                </div>
+                
+                <div className="font-medium">10-Year Total ROI:</div>
+                <div className={bestScenarioMetrics.totalReturnOnInvestment > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {bestScenarioMetrics.totalReturnOnInvestment.toFixed(2)}%
+                </div>
+                
+                <div className="font-medium">Internal Rate of Return:</div>
+                <div className={bestScenarioMetrics.internalRateOfReturn > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {bestScenarioMetrics.internalRateOfReturn.toFixed(2)}%
+                </div>
+                
+                <div className="font-medium">Break-even Point:</div>
+                <div>{Math.round(bestScenarioMetrics.breakEvenPoint)} months</div>
+                
+                <div className="font-medium">Future Property Value:</div>
+                <div>{formatCurrency(bestScenarioMetrics.futurePropertyValue)} (after {advancedParams.yearsToHold} years)</div>
+                
+                <div className="font-medium">Net Sale Proceeds:</div>
+                <div>{formatCurrency(bestScenarioMetrics.netSaleProceeds)}</div>
+                
+                <div className="font-medium">Estimated Annual Taxes:</div>
+                <div>{formatCurrency(bestScenarioMetrics.yearlyTaxes)}</div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg border">
+              <h3 className="text-xl font-bold mb-4">Investment Assumptions</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="font-medium">Property Appreciation:</div>
+                <div>{advancedParams.propertyAppreciationRate}% annually</div>
+                
+                <div className="font-medium">Rent Increases:</div>
+                <div>{advancedParams.rentIncreaseRate}% annually</div>
+                
+                <div className="font-medium">Vacancy Rate:</div>
+                <div>{advancedParams.vacancyRate}%</div>
+                
+                <div className="font-medium">Maintenance:</div>
+                <div>{advancedParams.maintenancePercent}% of property value</div>
+                
+                <div className="font-medium">Property Management:</div>
+                <div>{advancedParams.propertyManagementPercent}% of rental income</div>
+                
+                <div className="font-medium">Expense Inflation:</div>
+                <div>{advancedParams.inflationRate}% annually</div>
+                
+                <div className="font-medium">Investment Horizon:</div>
+                <div>{advancedParams.yearsToHold} years</div>
+                
+                <div className="font-medium">Selling Costs:</div>
+                <div>{advancedParams.sellingCostPercent}% of sale price</div>
+                
+                <div className="font-medium">Income Tax Rate:</div>
+                <div>{advancedParams.taxRate}%</div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-8">
+            <h3 className="text-xl font-bold mb-4">Cash Flow Projections</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white border border-gray-200">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="py-2 px-3 border">Year</th>
+                    <th className="py-2 px-3 border">Effective Rent</th>
+                    <th className="py-2 px-3 border">Operating Expenses</th>
+                    <th className="py-2 px-3 border">Operating Income</th>
+                    <th className="py-2 px-3 border">Mortgage Payments</th>
+                    <th className="py-2 px-3 border">Cashflow Before Tax</th>
+                    <th className="py-2 px-3 border">Taxable Income</th>
+                    <th className="py-2 px-3 border">Tax Amount</th>
+                    <th className="py-2 px-3 border">After-Tax Cashflow</th>
+                    <th className="py-2 px-3 border">Cumulative Cashflow</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bestScenarioMetrics.futureCashflows.map((cf, index) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                      <td className="py-2 px-3 border">{cf.year}</td>
+                      <td className="py-2 px-3 border">{formatCurrency(cf.effectiveRent)}</td>
+                      <td className="py-2 px-3 border">{formatCurrency(cf.operatingExpenses)}</td>
+                      <td className="py-2 px-3 border">{formatCurrency(cf.operatingIncome)}</td>
+                      <td className="py-2 px-3 border">{formatCurrency(cf.mortgagePayments)}</td>
+                      <td className="py-2 px-3 border">{formatCurrency(cf.cashflowBeforeTax)}</td>
+                      <td className="py-2 px-3 border">{formatCurrency(cf.taxableIncome)}</td>
+                      <td className="py-2 px-3 border">{formatCurrency(cf.taxAmount)}</td>
+                      <td className="py-2 px-3 border" className={cf.afterTaxCashflow > 0 ? 'py-2 px-3 border text-green-600 font-semibold' : 'py-2 px-3 border text-red-600 font-semibold'}>
+                        {formatCurrency(cf.afterTaxCashflow)}
+                      </td>
+                      <td className="py-2 px-3 border" className={cf.cumulativeCashflow > 0 ? 'py-2 px-3 border text-green-600 font-semibold' : 'py-2 px-3 border text-red-600 font-semibold'}>
+                        {formatCurrency(cf.cumulativeCashflow)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold mb-4">Fixed Costs Settings</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Annual Property Tax</label>
+            <input 
+              type="number" 
+              className="w-full p-2 border rounded"
+              value={fixedCosts.propertyTax}
+              onChange={(e) => setFixedCosts({...fixedCosts, propertyTax: Number(e.target.value)})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Annual Insurance</label>
+            <input 
+              type="number" 
+              className="w-full p-2 border rounded"
+              value={fixedCosts.insurance}
+              onChange={(e) => setFixedCosts({...fixedCosts, insurance: Number(e.target.value)})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Monthly HOA</label>
+            <input 
+              type="number" 
+              className="w-full p-2 border rounded"
+              value={fixedCosts.hoa}
+              onChange={(e) => setFixedCosts({...fixedCosts, hoa: Number(e.target.value)})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Onboarding Costs</label>
+            <input 
+              type="number" 
+              className="w-full p-2 border rounded"
+              value={fixedCosts.onboarding}
+              onChange={(e) => setFixedCosts({...fixedCosts, onboarding: Number(e.target.value)})}
+            />
+          </div>
+        </div>
       </div>
       
-      {/* Top 10 Scenarios Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top 10 Scenarios by ROI</CardTitle>
-          <CardDescription>Best return on investment scenarios</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="p-2 text-left">Purchase Price</th>
-                  <th className="p-2 text-left">Down Payment</th>
-                  <th className="p-2 text-left">Interest Rate</th>
-                  <th className="p-2 text-left">Cap Rate</th>
-                  <th className="p-2 text-left">Monthly Cashflow</th>
-                  <th className="p-2 text-left">Annual Cashflow</th>
-                  <th className="p-2 text-left">Initial Investment</th>
-                  <th className="p-2 text-left">ROI</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topScenarios.map((scenario, index) => (
-                  <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : ""}>
-                    <td className="p-2">{formatCurrency(scenario.purchasePrice)}</td>
-                    <td className="p-2">{formatPercentage(scenario.downPaymentPercentage)} ({formatCurrency(scenario.downPayment)})</td>
-                    <td className="p-2">{formatPercentage(scenario.interestRate)}</td>
-                    <td className="p-2">{formatPercentage(scenario.capRate)}</td>
-                    <td className="p-2">{formatCurrency(scenario.monthlyCashflow)}</td>
-                    <td className="p-2">{formatCurrency(scenario.annualCashflow)}</td>
-                    <td className="p-2">{formatCurrency(scenario.initialInvestment)}</td>
-                    <td className="p-2 font-bold">{formatPercentage(scenario.annualROI)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Specific Scenarios Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>$900K Property Scenarios (7.0% Interest, 10% Cap Rate)</CardTitle>
-          <CardDescription>Comparison of different down payment options</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="p-2 text-left">Down Payment %</th>
-                  <th className="p-2 text-left">Down Payment $</th>
-                  <th className="p-2 text-left">Monthly Mortgage</th>
-                  <th className="p-2 text-left">Monthly Expenses</th>
-                  <th className="p-2 text-left">Monthly Income</th>
-                  <th className="p-2 text-left">Property Mgmt</th>
-                  <th className="p-2 text-left">Monthly Cashflow</th>
-                  <th className="p-2 text-left">Annual Cashflow</th>
-                  <th className="p-2 text-left">Initial Investment</th>
-                  <th className="p-2 text-left">ROI</th>
-                </tr>
-              </thead>
-              <tbody>
-                {specificScenarios.map((scenario, index) => (
-                  <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : ""}>
-                    <td className="p-2">{formatPercentage(scenario.downPaymentPercentage)}</td>
-                    <td className="p-2">{formatCurrency(scenario.downPayment)}</td>
-                    <td className="p-2">{formatCurrency(scenario.monthlyMortgagePayment)}</td>
-                    <td className="p-2">{formatCurrency(scenario.totalMonthlyExpenses)}</td>
-                    <td className="p-2">{formatCurrency(scenario.monthlyIncome)}</td>
-                    <td className="p-2">{formatCurrency(scenario.monthlyManagementCost)}</td>
-                    <td className="p-2">{formatCurrency(scenario.monthlyCashflow)}</td>
-                    <td className="p-2">{formatCurrency(scenario.annualCashflow)}</td>
-                    <td className="p-2">{formatCurrency(scenario.initialInvestment)}</td>
-                    <td className="p-2 font-bold">{formatPercentage(scenario.annualROI)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Download Raw Data Button */}
-      <div className="flex justify-center mt-8 mb-8">
-        <button
-          className="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-lg"
-          onClick={downloadRawData}
-          disabled={scenarios.length === 0}
-        >
-          Download All Raw Data
-        </button>
+      <div className="text-sm text-gray-500">
+        <p>Note: This tool calculates 5-year projections with fixed costs and no appreciation or rent increases.</p>
       </div>
     </div>
   );
