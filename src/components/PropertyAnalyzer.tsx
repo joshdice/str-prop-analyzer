@@ -46,6 +46,14 @@ const PropertyAnalyzer = () => {
 
   // Define calculation function
   const handleCalculate = useCallback(() => {
+    console.log("handleCalculate called with values:", {
+      annualPropertyTax,
+      annualInsurance,
+      monthlyHOA,
+      onboardingCosts,
+      propertyManagementRate
+    });
+    
     const results = calculateScenarios({
       purchasePrices,
       downPaymentPercentages,
@@ -56,6 +64,13 @@ const PropertyAnalyzer = () => {
       monthlyHOA,
       onboardingCosts,
       propertyManagementRate
+    });
+    
+    console.log("Calculation results:", {
+      scenariosCount: results.allScenarios.length,
+      topScenariosCount: results.topScenarios.length,
+      hasBestScenario: !!results.bestScenario,
+      hasWorstScenario: !!results.worstScenario
     });
     
     setScenarios(results.allScenarios);
@@ -88,7 +103,7 @@ const PropertyAnalyzer = () => {
     downloadRawData(scenarios);
   };
 
-  // Fixed costs updating functions
+  // Fixed costs updating functions - don't memoize this object
   const updateFixedCosts = {
     setAnnualPropertyTax,
     setAnnualInsurance,

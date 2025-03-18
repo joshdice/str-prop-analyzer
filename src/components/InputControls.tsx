@@ -34,6 +34,19 @@ export const InputControls: React.FC<InputControlsProps> = ({
     setPropertyManagementRate
   } = updateFixedCosts;
 
+  // Add debug logging
+  const handleCalculateClick = () => {
+    console.log("Recalculate button clicked");
+    console.log("Current values:", {
+      annualPropertyTax,
+      annualInsurance,
+      monthlyHOA,
+      onboardingCosts,
+      propertyManagementRate
+    });
+    onCalculate();
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -47,7 +60,10 @@ export const InputControls: React.FC<InputControlsProps> = ({
               id="propertyTax"
               type="number"
               value={annualPropertyTax}
-              onChange={(e) => setAnnualPropertyTax(Number(e.target.value))}
+              onChange={(e) => {
+                console.log("Property tax changing to:", e.target.value);
+                setAnnualPropertyTax(Number(e.target.value));
+              }}
             />
           </div>
           <div>
@@ -92,7 +108,7 @@ export const InputControls: React.FC<InputControlsProps> = ({
         <div className="mt-4 flex justify-center">
           <button
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            onClick={onCalculate}
+            onClick={handleCalculateClick}
           >
             {hasCalculated ? 'Recalculate Results' : 'Calculate Results'}
           </button>
