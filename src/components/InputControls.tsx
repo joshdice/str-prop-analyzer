@@ -1,5 +1,5 @@
 // InputControls.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,22 @@ export const InputControls: React.FC<InputControlsProps> = ({
   onCalculate,
   hasCalculated
 }) => {
+  // Local state for input fields - for immediate feedback
+  const [localPropertyTax, setLocalPropertyTax] = useState(annualPropertyTax.toString());
+  const [localInsurance, setLocalInsurance] = useState(annualInsurance.toString());
+  const [localHOA, setLocalHOA] = useState(monthlyHOA.toString());
+  const [localOnboarding, setLocalOnboarding] = useState(onboardingCosts.toString());
+  const [localManagementRate, setLocalManagementRate] = useState(propertyManagementRate.toString());
+  
+  // Sync local state with props when they change
+  useEffect(() => {
+    setLocalPropertyTax(annualPropertyTax.toString());
+    setLocalInsurance(annualInsurance.toString());
+    setLocalHOA(monthlyHOA.toString());
+    setLocalOnboarding(onboardingCosts.toString());
+    setLocalManagementRate(propertyManagementRate.toString());
+  }, [annualPropertyTax, annualInsurance, monthlyHOA, onboardingCosts, propertyManagementRate]);
+
   const {
     setAnnualPropertyTax,
     setAnnualInsurance,
@@ -34,16 +50,16 @@ export const InputControls: React.FC<InputControlsProps> = ({
     setPropertyManagementRate
   } = updateFixedCosts;
 
-  // Add debug logging
+  // Handle calculation with local state values
   const handleCalculateClick = () => {
-    console.log("Recalculate button clicked");
-    console.log("Current values:", {
-      annualPropertyTax,
-      annualInsurance,
-      monthlyHOA,
-      onboardingCosts,
-      propertyManagementRate
-    });
+    // Update parent state with local values
+    setAnnualPropertyTax(Number(localPropertyTax) || 0);
+    setAnnualInsurance(Number(localInsurance) || 0);
+    setMonthlyHOA(Number(localHOA) || 0);
+    setOnboardingCosts(Number(localOnboarding) || 0);
+    setPropertyManagementRate(Number(localManagementRate) || 0);
+    
+    // Trigger calculation
     onCalculate();
   };
 
@@ -58,50 +74,45 @@ export const InputControls: React.FC<InputControlsProps> = ({
             <Label htmlFor="propertyTax">Annual Property Tax</Label>
             <Input
               id="propertyTax"
-              type="number"
-              value={annualPropertyTax}
-              onChange={(e) => {
-                console.log("Property tax changing to:", e.target.value);
-                setAnnualPropertyTax(Number(e.target.value));
-              }}
+              type="text"
+              value={localPropertyTax}
+              onChange={(e) => setLocalPropertyTax(e.target.value)}
             />
           </div>
           <div>
             <Label htmlFor="insurance">Annual Insurance</Label>
             <Input
               id="insurance"
-              type="number"
-              value={annualInsurance}
-              onChange={(e) => setAnnualInsurance(Number(e.target.value))}
+              type="text"
+              value={localInsurance}
+              onChange={(e) => setLocalInsurance(e.target.value)}
             />
           </div>
           <div>
             <Label htmlFor="hoa">Monthly HOA</Label>
             <Input
               id="hoa"
-              type="number"
-              value={monthlyHOA}
-              onChange={(e) => setMonthlyHOA(Number(e.target.value))}
+              type="text"
+              value={localHOA}
+              onChange={(e) => setLocalHOA(e.target.value)}
             />
           </div>
           <div>
             <Label htmlFor="onboarding">Onboarding Costs</Label>
             <Input
               id="onboarding"
-              type="number"
-              value={onboardingCosts}
-              onChange={(e) => setOnboardingCosts(Number(e.target.value))}
+              type="text"
+              value={localOnboarding}
+              onChange={(e) => setLocalOnboarding(e.target.value)}
             />
           </div>
           <div>
             <Label htmlFor="propertyManagement">Property Management (%)</Label>
             <Input
               id="propertyManagement"
-              type="number"
-              min="0"
-              max="100"
-              value={propertyManagementRate}
-              onChange={(e) => setPropertyManagementRate(Number(e.target.value))}
+              type="text"
+              value={localManagementRate}
+              onChange={(e) => setLocalManagementRate(e.target.value)}
             />
           </div>
         </div>
