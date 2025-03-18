@@ -22,3 +22,9 @@ It was created as a Next.js app for the base project structure and the huge Type
 - npx shadcn@latest add label
 - npx shadcn@latest add input
 - npm install recharts
+
+## To build the app:
+- npm run build
+
+## To start the app:
+- npm run dev
