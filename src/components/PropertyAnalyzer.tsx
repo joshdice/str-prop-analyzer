@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { InputControls } from './InputControls';
 import { ScenarioCard } from './ScenarioCard';
 import { TopScenariosTable } from './TopScenariosTable';
-import { ScenarioComparisonTable } from './ScenarioComparisonTable';
+import { PropertyScenarios } from './PropertyScenarios';
 import { ROIByPurchaseChart } from './charts/ROIByPurchaseChart';
 import { CashflowByDownPaymentChart } from './charts/CashflowByDownPaymentChart';
 import { ROIByCapRateChart } from './charts/ROIByCapRateChart';
@@ -41,7 +41,6 @@ const PropertyAnalyzer = () => {
   const [roiByPurchasePrice, setRoiByPurchasePrice] = useState<ROIByPurchasePriceData[]>([]);
   const [bestScenario, setBestScenario] = useState<ScenarioData | null>(null);
   const [worstScenario, setWorstScenario] = useState<ScenarioData | null>(null);
-  const [specificScenarios, setSpecificScenarios] = useState<ScenarioData[]>([]);
   const [hasCalculated, setHasCalculated] = useState(false);
 
   // Define calculation function
@@ -77,7 +76,6 @@ const PropertyAnalyzer = () => {
     setTopScenarios(results.topScenarios);
     setBestScenario(results.bestScenario);
     setWorstScenario(results.worstScenario);
-    setSpecificScenarios(results.specificScenarios);
     setCashflowByDownPayment(results.cashflowByDownPayment);
     setRoiByCapRate(results.roiByCapRate);
     setRoiByPurchasePrice(results.roiByPurchasePrice);
@@ -99,17 +97,17 @@ const PropertyAnalyzer = () => {
     handleCalculate();
   }, [handleCalculate]);
 
-  const handleDownloadData = () => {
-    downloadRawData(scenarios);
-  };
-
-  // Fixed costs updating functions - don't memoize this object
+  // Fixed costs updating functions
   const updateFixedCosts = {
     setAnnualPropertyTax,
     setAnnualInsurance,
     setMonthlyHOA,
     setOnboardingCosts,
     setPropertyManagementRate
+  };
+
+  const handleDownloadData = () => {
+    downloadRawData(scenarios);
   };
 
   return (
@@ -154,10 +152,11 @@ const PropertyAnalyzer = () => {
       
       <TopScenariosTable scenarios={topScenarios} />
       
-      <ScenarioComparisonTable 
-        title="$900K Property Scenarios (7.0% Interest, 10% Cap Rate)"
-        description="Comparison of different down payment options"
-        scenarios={specificScenarios} 
+      <PropertyScenarios
+        scenarios={scenarios}
+        purchasePrices={purchasePrices}
+        interestRates={interestRates}
+        capRates={capRates}
       />
       
       <div className="flex justify-center mt-8 mb-8">

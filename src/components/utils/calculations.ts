@@ -4,6 +4,8 @@ import {
   CalculationResults, 
   ScenarioData,
   YearlyData,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  ChartData,
   CashflowByDownPaymentData,
   ROIByCapRateData,
   ROIByPurchasePriceData
@@ -118,17 +120,7 @@ export const calculateScenarios = (inputs: CalculationInputs): CalculationResult
   // Set best and worst scenarios
   const bestScenario = allScenarios.length > 0 ? allScenarios[0] : null;
   const worstScenario = allScenarios.length > 0 ? allScenarios[allScenarios.length - 1] : null;
-  
-  // Get specific scenarios
-  const specificScenariosFiltered = allScenarios.filter(scenario => 
-    scenario.purchasePrice === 900000 && 
-    scenario.interestRate === 7.0 && 
-    scenario.capRate === 10
-  );
-  
-  // Sort by down payment percentage
-  specificScenariosFiltered.sort((a, b) => a.downPaymentPercentage - b.downPaymentPercentage);
-  
+    
   // Generate chart data
   const cashflowByDownPayment = generateCashflowByDownPayment(allScenarios);
   const roiByCapRate = generateRoiByCapRate(allScenarios);
@@ -139,7 +131,7 @@ export const calculateScenarios = (inputs: CalculationInputs): CalculationResult
     topScenarios,
     bestScenario,
     worstScenario,
-    specificScenarios: specificScenariosFiltered,
+    specificScenarios: [], // Empty array, no longer needed
     cashflowByDownPayment,
     roiByCapRate,
     roiByPurchasePrice
