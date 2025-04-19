@@ -2,6 +2,7 @@
   "name": "property-investment-analyzer",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://joshdice.github.io/str-prop-analyzer",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
