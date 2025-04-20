@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { InputControls } from './InputControls';
 import { ScenarioCard } from './ScenarioCard';
 import { TopScenariosTable } from './TopScenariosTable';
+import { TopCashflowScenariosTable } from './TopCashflowScenariosTable';
 import { PropertyScenarios } from './PropertyScenarios';
 import { ROIByPurchaseChart } from './charts/ROIByPurchaseChart';
 import { CashflowByDownPaymentChart } from './charts/CashflowByDownPaymentChart';
@@ -149,6 +150,8 @@ const PropertyAnalyzer = () => {
         <ROIByCapRateChart data={roiByCapRate} />
         <ScenarioDistributionChart data={scenarios} />
       </div>
+      
+      <TopCashflowScenariosTable scenarios={scenarios} />
       
       <TopScenariosTable scenarios={topScenarios} />
       
