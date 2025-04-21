@@ -22,7 +22,7 @@ import {
 
 const PropertyAnalyzer = () => {
   // Configuration values - use useMemo to prevent recreation on each render
-  const purchasePrices = useMemo(() => [500000, 600000, 700000, 800000, 900000], []);
+  const purchasePrices = useMemo(() => [200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000], []);
   const downPaymentPercentages = useMemo(() => [25, 35, 45, 55, 65, 75], []);
   const interestRates = useMemo(() => [6.0, 6.5, 7.0, 7.5, 8.0], []);
   const capRates = useMemo(() => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], []);
